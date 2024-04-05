@@ -78,6 +78,50 @@ def get_loaders(args):
             dset.CIFAR10(root='data/cifar', train=False, download=True,
                         transform=testTransform),
             batch_size=args.batchSz, shuffle=False, **kwargs)
+            
+    elif args.dataset == 'breakhis':
+        trainTransform = transforms.Compose([
+            transforms.Grayscale(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,)),
+            transforms.Resize((246,246)),
+        ])
+        testTransform = transforms.Compose([
+            transforms.Grayscale(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,)),
+            transforms.Resize((246,246)),
+        ])
+        train_dir = 'data/BreaKHis 400X/train'
+        test_dir = 'data/BreaKHis 400X/test'
+
+        training_set = dset.ImageFolder(train_dir, transform=trainTransform)
+        test_set = dset.ImageFolder(test_dir, transform=testTransform)
+
+        trainLoader = DataLoader(training_set, batch_size=args.batchSz, shuffle=True, **kwargs)
+        testLoader = DataLoader(test_set, batch_size=args.batchSz, shuffle=False, **kwargs)
+
+    elif args.dataset == 'brain-tumor':
+        trainTransform = transforms.Compose([
+            transforms.Grayscale(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,)),
+            transforms.Resize((246,246)),
+        ])
+        testTransform = transforms.Compose([
+            transforms.Grayscale(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,)),
+            transforms.Resize((246,246)),
+        ])
+        train_dir = 'data/brain_cancer/Training'
+        test_dir = 'data/brain_cancer/Testing'
+
+        training_set = dset.ImageFolder(train_dir, transform=trainTransform)
+        test_set = dset.ImageFolder(test_dir, transform=testTransform)
+
+        trainLoader = DataLoader(training_set, batch_size=args.batchSz, shuffle=True, **kwargs)
+        testLoader = DataLoader(test_set, batch_size=args.batchSz, shuffle=False, **kwargs)
     else:
         assert(False)
 
@@ -88,13 +132,13 @@ def get_net(args):
         net = densenet.DenseNet(growthRate=12, depth=100, reduction=0.5,
                                 bottleneck=True, nClasses=10)
     elif args.model == 'lenet':
-        net = models.Lenet(args.nHidden, 10, args.proj)
+        net = models.Lenet(args.nHidden, 2, args.proj)
     elif args.model == 'lenet-optnet':
         net = models.LenetOptNet(args.nHidden, args.nineq)
     elif args.model == 'fc':
         net = models.FC(args.nHidden, args.bn)
     elif args.model == 'optnet':
-        net = models.OptNet(28*28, args.nHidden, 10, args.bn, args.nineq)
+        net = models.OptNet(246*246, args.nHidden, 2, args.bn, args.nineq)
     elif args.model == 'optnet-eq':
         net = models.OptNetEq(28*28, args.nHidden, 10, args.neq)
     else:
@@ -114,7 +158,7 @@ def get_optimizer(args, params):
             ])
         else:
             optimizer = optim.Adam(params)
-    elif args.dataset in ('cifar-10', 'cifar-100'):
+    elif args.dataset in ('cifar-10', 'cifar-100', 'breakhis', 'brain-tumor'):
         if args.opt == 'sgd':
             optimizer = optim.SGD(params, lr=1e-1, momentum=0.9, weight_decay=args.weightDecay)
         elif args.opt == 'adam':
@@ -131,12 +175,12 @@ def main():
     parser.add_argument('--save', type=str)
     parser.add_argument('--work', type=str, default='work')
     parser.add_argument('--seed', type=int, default=1)
-    parser.add_argument('--nEpoch', type=int, default=1000)
+    parser.add_argument('--nEpoch', type=int, default=10)
     parser.add_argument('--weightDecay', type=float, default=1e-4)
     parser.add_argument('--opt', type=str, default='sgd',
                         choices=('sgd', 'adam'))
     parser.add_argument('dataset', type=str,
-                        choices=['mnist', 'cifar-10', 'cifar-100', 'svhn'])
+                        choices=['mnist', 'cifar-10', 'cifar-100', 'breakhis','brain-tumor'])
     subparsers = parser.add_subparsers(dest='model')
     lenetP = subparsers.add_parser('lenet')
     lenetP.add_argument('--nHidden', type=int, default=50)
@@ -163,19 +207,19 @@ def main():
     if args.save is None:
         t = '{}.{}'.format(args.dataset, args.model)
         if args.model == 'lenet':
-            t += '.nHidden:{}.proj:{}'.format(args.nHidden, args.proj)
+            t += '.nHidden_{}.proj_{}'.format(args.nHidden, args.proj)
         elif args.model == 'fc':
-            t += '.nHidden:{}'.format(args.nHidden)
+            t += '.nHidden_{}'.format(args.nHidden)
             if args.bn:
                 t += '.bn'
         elif args.model == 'optnet':
-            t += '.nHidden:{}.nineq:{}.eps:{}'.format(args.nHidden, args.nineq, args.eps)
+            t += '.nHidden_{}.nineq_{}.eps_{}'.format(args.nHidden, args.nineq, args.eps)
             if args.bn:
                 t += '.bn'
         elif args.model == 'optnet-eq':
-            t += '.nHidden:{}.neq:{}'.format(args.nHidden, args.neq)
+            t += '.nHidden_{}.neq_{}'.format(args.nHidden, args.neq)
         elif args.model == 'lenet-optnet':
-            t += '.nHidden:{}.nineq:{}.eps:{}'.format(args.nHidden, args.nineq, args.eps)
+            t += '.nHidden_{}.nineq_{}.eps_{}'.format(args.nHidden, args.nineq, args.eps)
     setproctitle.setproctitle('bamos.'+t)
     args.save = os.path.join(args.work, t)
 
@@ -236,9 +280,9 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
         partialEpoch = epoch + batch_idx / len(trainLoader) - 1
         print('Train Epoch: {:.2f} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tError: {:.6f}'.format(
             partialEpoch, nProcessed, nTrain, 100. * batch_idx / len(trainLoader),
-            loss.data[0], err))
+            loss.item(), err.item()))
 
-        trainF.write('{},{},{}\n'.format(partialEpoch, loss.data[0], err))
+        trainF.write('{},{},{}\n'.format(partialEpoch, loss.item(), err.item()))
         trainF.flush()
 
 def test(args, epoch, net, testLoader, optimizer, testF):
@@ -250,9 +294,9 @@ def test(args, epoch, net, testLoader, optimizer, testF):
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
         output = net(data)
-        test_loss += F.nll_loss(output, target).data[0]
+        test_loss += F.nll_loss(output, target).data.item()
         pred = output.data.max(1)[1] # get the index of the max log-probability
-        incorrect += pred.ne(target.data).cpu().sum()
+        incorrect += pred.ne(target.data).cpu().sum().item()
 
     test_loss = test_loss
     test_loss /= len(testLoader) # loss function already averages over batch size

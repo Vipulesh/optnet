@@ -12,7 +12,7 @@ class Lenet(nn.Module):
         super(Lenet, self).__init__()
         self.conv1 = nn.Conv2d(1, 20, kernel_size=5)
         self.conv2 = nn.Conv2d(20, 50, kernel_size=5)
-        self.fc1 = nn.Linear(50*4*4, nHidden)
+        self.fc1 = nn.Linear(50*58*58, nHidden)
         self.fc2 = nn.Linear(nHidden, nCls)
 
         self.proj = proj
@@ -129,8 +129,9 @@ class OptNet(nn.Module):
         if bn:
             self.bn1 = nn.BatchNorm1d(nHidden)
             self.bn2 = nn.BatchNorm1d(nCls)
-
+        # print(bn)
         self.fc1 = nn.Linear(nFeatures, nHidden)
+        # print(nFeatures,nHidden)
         self.fc2 = nn.Linear(nHidden, nCls)
 
         # self.qp_z0 = nn.Linear(nCls, nCls)
